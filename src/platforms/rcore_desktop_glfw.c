@@ -1138,11 +1138,10 @@ void PollInputEvents(void)
 
     // Keyboard/Mouse input polling (automatically managed by GLFW3 through callback)
 
-    // Register previous keys states
+
     for (int i = 0; i < MAX_KEYBOARD_KEYS; i++)
     {
-        CORE.Input.Keyboard.previousKeyState[i] = CORE.Input.Keyboard.currentKeyState[i];
-        CORE.Input.Keyboard.keyRepeatInFrame[i] = 0;
+        CORE.Input.Keyboard.keyState[i] &= KEYFLAG_DOWN;
     }
 
     // Register previous mouse states
@@ -1250,6 +1249,9 @@ void PollInputEvents(void)
 
     if (CORE.Window.eventWaiting) glfwWaitEvents();     // Wait for in input events before continue (drawing is paused)
     else glfwPollEvents();      // Poll input events: keyboard/mouse/window events (callbacks) -> Update keys state
+
+    // Check the exit key to set close window
+    if (CORE.Input.Keyboard.keyState[CORE.Input.Keyboard.exitKey] & KEYFLAG_PRESSED) glfwSetWindowShouldClose(platform.handle, GLFW_TRUE);
 
     // While window minimized, stop loop execution
     while (IsWindowState(FLAG_WINDOW_MINIMIZED) && !IsWindowState(FLAG_WINDOW_ALWAYS_RUN)) glfwWaitEvents();
@@ -1789,15 +1791,20 @@ static void KeyCallback(GLFWwindow *window, int key, int scancode, int action, i
 {
     if (key < 0) return;    // Security check, macOS fn key generates -1
 
-    // WARNING: GLFW could return GLFW_REPEAT, we need to consider it as 1
-    // to work properly with our implementation (IsKeyDown/IsKeyUp checks)
-    if (action == GLFW_RELEASE) CORE.Input.Keyboard.currentKeyState[key] = 0;
-    else if(action == GLFW_PRESS) CORE.Input.Keyboard.currentKeyState[key] = 1;
-    else if(action == GLFW_REPEAT) CORE.Input.Keyboard.keyRepeatInFrame[key] = 1;
+    char keyState = CORE.Input.Keyboard.keyState[key];
+    if (action == GLFW_RELEASE)
+    {
+        keyState |= KEYFLAG_RELEASED;
+        keyState &= ~KEYFLAG_DOWN;
+    }
+    else if(action == GLFW_PRESS) keyState |= (KEYFLAG_PRESSED | KEYFLAG_DOWN);
+    else if(action == GLFW_REPEAT) keyState |= KEYFLAG_REPEAT;
+
+    CORE.Input.Keyboard.keyState[key] = keyState;
 
     // WARNING: Check if CAPS/NUM key modifiers are enabled and force down state for those keys
     if (((key == KEY_CAPS_LOCK) && ((mods & GLFW_MOD_CAPS_LOCK) > 0)) ||
-        ((key == KEY_NUM_LOCK) && ((mods & GLFW_MOD_NUM_LOCK) > 0))) CORE.Input.Keyboard.currentKeyState[key] = 1;
+        ((key == KEY_NUM_LOCK) && ((mods & GLFW_MOD_NUM_LOCK) > 0))) CORE.Input.Keyboard.keyState[key] |= KEYFLAG_DOWN;
 
     // Check if there is space available in the key queue
     if ((CORE.Input.Keyboard.keyPressedQueueCount < MAX_KEY_PRESSED_QUEUE) && (action == GLFW_PRESS))
@@ -1806,9 +1813,6 @@ static void KeyCallback(GLFWwindow *window, int key, int scancode, int action, i
         CORE.Input.Keyboard.keyPressedQueue[CORE.Input.Keyboard.keyPressedQueueCount] = key;
         CORE.Input.Keyboard.keyPressedQueueCount++;
     }
-
-    // Check the exit key to set close window
-    if ((key == CORE.Input.Keyboard.exitKey) && (action == GLFW_PRESS)) glfwSetWindowShouldClose(platform.handle, GLFW_TRUE);
 }
 
 // GLFW3 Char Callback, get unicode codepoint value
