@@ -275,6 +275,12 @@ __declspec(dllimport) unsigned int __stdcall timeEndPeriod(unsigned int uPeriod)
 //----------------------------------------------------------------------------------
 typedef struct { int x; int y; } Point;
 typedef struct { unsigned int width; unsigned int height; } Size;
+typedef enum {
+    KEYFLAG_DOWN = 1,
+    KEYFLAG_PRESSED = 2,
+    KEYFLAG_RELEASED = 4,
+    KEYFLAG_REPEAT = 8,
+} KeyStateFlags;
 
 // Core global state context data
 typedef struct CoreData {
@@ -311,11 +317,7 @@ typedef struct CoreData {
     struct {
         struct {
             int exitKey;                    // Default exit key
-            char currentKeyState[MAX_KEYBOARD_KEYS];        // Registers current frame key state
-            char previousKeyState[MAX_KEYBOARD_KEYS];       // Registers previous frame key state
-
-            // NOTE: Since key press logic involves comparing prev vs cur key state, we need to handle key repeats specially
-            char keyRepeatInFrame[MAX_KEYBOARD_KEYS];       // Registers key repeats for current frame
+            char keyState[MAX_KEYBOARD_KEYS];
 
             int keyPressedQueue[MAX_KEY_PRESSED_QUEUE];     // Input keys queue
             int keyPressedQueueCount;       // Input keys queue count
@@ -3134,67 +3136,51 @@ void PlayAutomationEvent(AutomationEvent event)
 // Check if a key has been pressed once
 bool IsKeyPressed(int key)
 {
-
-    bool pressed = false;
-
     if ((key > 0) && (key < MAX_KEYBOARD_KEYS))
     {
-        if ((CORE.Input.Keyboard.previousKeyState[key] == 0) && (CORE.Input.Keyboard.currentKeyState[key] == 1)) pressed = true;
+        return CORE.Input.Keyboard.keyState[key] & KEYFLAG_PRESSED;
     }
-
-    return pressed;
+    return false;
 }
 
 // Check if a key has been pressed again
 bool IsKeyPressedRepeat(int key)
 {
-    bool repeat = false;
-
     if ((key > 0) && (key < MAX_KEYBOARD_KEYS))
     {
-        if (CORE.Input.Keyboard.keyRepeatInFrame[key] == 1) repeat = true;
+        return CORE.Input.Keyboard.keyState[key] & KEYFLAG_REPEAT;
     }
-
-    return repeat;
+    return false;
 }
 
 // Check if a key is being pressed (key held down)
 bool IsKeyDown(int key)
 {
-    bool down = false;
-
     if ((key > 0) && (key < MAX_KEYBOARD_KEYS))
     {
-        if (CORE.Input.Keyboard.currentKeyState[key] == 1) down = true;
+        return CORE.Input.Keyboard.keyState[key] & KEYFLAG_DOWN;
     }
-
-    return down;
+    return false;
 }
 
 // Check if a key has been released once
 bool IsKeyReleased(int key)
 {
-    bool released = false;
-
     if ((key > 0) && (key < MAX_KEYBOARD_KEYS))
     {
-        if ((CORE.Input.Keyboard.previousKeyState[key] == 1) && (CORE.Input.Keyboard.currentKeyState[key] == 0)) released = true;
+        return CORE.Input.Keyboard.keyState[key] & KEYFLAG_RELEASED;
     }
-
-    return released;
+    return false;
 }
 
 // Check if a key is NOT being pressed (key not held down)
 bool IsKeyUp(int key)
 {
-    bool up = false;
-
     if ((key > 0) && (key < MAX_KEYBOARD_KEYS))
     {
-        if (CORE.Input.Keyboard.currentKeyState[key] == 0) up = true;
+        return !(CORE.Input.Keyboard.keyState[key] & KEYFLAG_DOWN);
     }
-
-    return up;
+    return false;
 }
 
 // Get the last key pressed
