@@ -65,7 +65,7 @@
 // Support CompressData() and DecompressData() functions
 #define SUPPORT_COMPRESSION_API         1
 // Support automatic generated events, loading and recording of those events when required
-#define SUPPORT_AUTOMATION_EVENTS       1
+//#define SUPPORT_AUTOMATION_EVENTS       1
 // Support custom frame control, only for advanced users
 // By default EndDrawing() does this job: draws everything + SwapScreenBuffer() + manage frame timing + PollInputEvents()
 // Enabling this flag allows manual control of the frame processes, use at your own risk
